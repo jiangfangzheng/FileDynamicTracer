@@ -23,7 +23,6 @@ static ssize_t (*hook_write)(int fd, const void *buf, size_t count) = NULL;
 #define DEFAULT_FILTER "/tmp/"
 
 char FILTER[MAX] = "/tmp/";
-FILE *cf_file = NULL;
 
 void getNamePID(int pid, char *pName) {
     int fp = 0;
@@ -43,7 +42,7 @@ void CheckConfig() {
     }
 }
 
-void PrintLog(char *real_path) {
+void PrintLog(char *real_path, char *msg) {
     char pName[MAX] = {0,};
     FILE *fp = NULL;
     if (strstr(real_path, FILTER) > 0) {
@@ -51,14 +50,14 @@ void PrintLog(char *real_path) {
         if (envSaveChar != NULL) {
             fp = hook_fopen(envSaveChar, "a+");
             if (fp) {
-                fprintf(fp, "%s\n", real_path);
+                fprintf(fp, "%s:%s\n", msg, real_path);
                 fclose(fp);
             }
         } else {
             fp = hook_fopen("/tmp/JfzTracer.log", "a+");
             if (fp) {
                 getNamePID(getppid(), pName);
-                fprintf(fp, "[-] Caller-> pName:[%s]:[%d],ppName:[%s]:[%d]->%s\n", __progname, getpid(), pName, getppid(), real_path);
+                fprintf(fp, "pName:%s pid:%d ppName:%s ppid:%d path:%s\n", __progname, getpid(), pName, getppid(), real_path);
                 fclose(fp);
             }
         }
@@ -72,7 +71,7 @@ int unlinkat(int dirfd, const char *path, int flags) {
     char *real_path = realpath(path, 0);
     if (real_path) {
         CheckConfig();
-        PrintLog(real_path);
+        PrintLog(real_path, "unlinkat()");
     }
     return hook_unlinkat(dirfd, path, flags);
 }
@@ -84,7 +83,7 @@ int unlink(const char *path) {
     char *real_path = realpath(path, 0);
     if (real_path) {
         CheckConfig();
-        PrintLog(real_path);
+        PrintLog(real_path, "unlink()");
     }
     return hook_unlink(path);
 }
@@ -97,7 +96,9 @@ int open(const char *path, int flags, mode_t mode) {
     char *real_path = realpath(path, 0);
     if (real_path) {
         CheckConfig();
-        PrintLog(real_path);
+        char msg[0xFFF];
+        sprintf(msg, "open()%d", flags);
+        PrintLog(real_path, msg);
     }
     return hook_ret;
 }
@@ -110,7 +111,9 @@ int open64(const char *path, int flags, mode_t mode) {
     char *real_path = realpath(path, 0);
     if (real_path) {
         CheckConfig();
-        PrintLog(real_path);
+        char msg[0xFFF];
+        sprintf(msg, "open64()%d", flags);
+        PrintLog(real_path, msg);
     }
     return hook_ret;
 }
@@ -123,7 +126,9 @@ FILE *fopen(const char *path, const char *mode) {
     char *real_path = realpath(path, 0);
     if (real_path) {
         CheckConfig();
-        PrintLog(real_path);
+        char msg[0xFFF];
+        sprintf(msg, "fopen()%s", mode);
+        PrintLog(real_path, msg);
     }
     return hook_ret;
 }
@@ -132,28 +137,19 @@ ssize_t write(int fd, const void *buf, size_t count) {
     if (hook_write == NULL) {
         hook_write = dlsym(RTLD_NEXT, "write");
     }
-    FILE* fp = fdopen(fd, "w+");
-    // int fno = fileno(fp);
-    // char proclnk[0xFFF];
-    // sprintf(proclnk, "/proc/self/fd/%d", fno);
-    // char filename[0xFFF];
-    // ssize_t r = readlink(proclnk, filename, 0xFFF);
-    
     ssize_t hook_ret = hook_write(fd, buf, count);
 
-    
-    // char proclnk[0xFFF];
-    // sprintf(proclnk, "/proc/self/fd/%d", fno);
-    // char filename[0xFFF];
-    // ssize_t r = readlink(proclnk, filename, 0xFFF);
-    
-//    char *real_path = realpath(path, 0);
-//    if (real_path) {
+    // fd to filePath
+    char proclnk[0xFFF];
+    sprintf(proclnk, "/proc/self/fd/%d", fd);
+    char filePath[0xFFF];
+    readlink(proclnk, filePath, 0xFFF);
+
+    char *real_path = realpath(filePath, 0);
+    if (real_path) {
         CheckConfig();
-        char str[0xFFF];
-        sprintf(str, "/root/_code/aosp-ninja-trace/_____write(%d)%d", fp, fd);
-        PrintLog(str);
-//    }
+        PrintLog(real_path, "write()");
+    }
     return hook_ret;
 }
 

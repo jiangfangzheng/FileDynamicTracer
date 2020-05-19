@@ -17,6 +17,8 @@ static int (*hook_unlinkat)(int dirfd, const char *path, int flags) = NULL;
 
 static int (*hook_unlink)(const char *path) = NULL;
 
+static ssize_t (*hook_write)(int fd, const void *buf, size_t count) = NULL;
+
 #define MAX 0x100
 #define DEFAULT_FILTER "/tmp/"
 
@@ -53,7 +55,7 @@ void PrintLog(char *real_path) {
                 fclose(fp);
             }
         } else {
-            fp = hook_fopen("ee", "a+");
+            fp = hook_fopen("/tmp/JfzTracer.log", "a+");
             if (fp) {
                 getNamePID(getppid(), pName);
                 fprintf(fp, "[-] Caller-> pName:[%s]:[%d],ppName:[%s]:[%d]->%s\n", __progname, getpid(), pName, getppid(), real_path);
@@ -126,6 +128,35 @@ FILE *fopen(const char *path, const char *mode) {
     return hook_ret;
 }
 
+ssize_t write(int fd, const void *buf, size_t count) {
+    if (hook_write == NULL) {
+        hook_write = dlsym(RTLD_NEXT, "write");
+    }
+    FILE* fp = fdopen(fd, "w+");
+    // int fno = fileno(fp);
+    // char proclnk[0xFFF];
+    // sprintf(proclnk, "/proc/self/fd/%d", fno);
+    // char filename[0xFFF];
+    // ssize_t r = readlink(proclnk, filename, 0xFFF);
+    
+    ssize_t hook_ret = hook_write(fd, buf, count);
+
+    
+    // char proclnk[0xFFF];
+    // sprintf(proclnk, "/proc/self/fd/%d", fno);
+    // char filename[0xFFF];
+    // ssize_t r = readlink(proclnk, filename, 0xFFF);
+    
+//    char *real_path = realpath(path, 0);
+//    if (real_path) {
+        CheckConfig();
+        char str[0xFFF];
+        sprintf(str, "/root/_code/aosp-ninja-trace/_____write(%d)%d", fp, fd);
+        PrintLog(str);
+//    }
+    return hook_ret;
+}
+
 void __attribute__ ((constructor)) before_load(void) {
     if (hook_open == NULL) {
         hook_open = dlsym(RTLD_NEXT, "open");
@@ -141,5 +172,8 @@ void __attribute__ ((constructor)) before_load(void) {
     }
     if (hook_unlinkat == NULL) {
         hook_unlinkat = dlsym(RTLD_NEXT, "unlinkat");
+    }
+    if (hook_write == NULL) {
+        hook_write = dlsym(RTLD_NEXT, "write");
     }
 }

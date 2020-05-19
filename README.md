@@ -7,6 +7,27 @@ Linux下基于动态注入技术实现的文件读写追踪器
 
 https://jfz.me/blog/2020/ld-preload-inject.html
 
+重写文件列表：
+
+```
+
+open、openat、write、rename、renameat、execve、read、readlink
+
+int open(const char *pathname, int flags);
+int open(const char *pathname, int flags, mode_t mode);
+int creat(const char *pathname, mode_t mode);
+int openat(int dirfd, const char *pathname, int flags);
+int openat(int dirfd, const char *pathname, int flags, mode_t mode);
+ssize_t write(int fd, const void *buf, size_t count);
+int rename(const char *old, const char *new);
+int renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
+int execve(const char *pathname, char *const argv[], char *const envp[]);
+ssize_t read(int fd, void *buf, size_t count);
+ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
+ssize_t readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz);
+
+```
+
 ### 使用
 
 导入环境变量指定保存文件的位置和过滤文件路径：
@@ -22,11 +43,11 @@ export LD_PRELOAD=/root/_code/FileDynamicTracer/libJfzTracer.so
 可以在JfzTracer.log看追踪的文件读写信息了，例如：
 
 ```
-/root/_code/aosp-ninja-trace/build.ninja
-/root/_code/aosp-ninja-trace/build/.ninja_log
-/root/_code/aosp-ninja-trace/build/.ninja_deps
-/root/_code/aosp-ninja-trace/src/browse.py
-/root/_code/aosp-ninja-trace/build/browse_py.h
+unlinkat():/root/_code/aosp-ninja-trace/build
+open()0:/root/_code/aosp-ninja-trace/build.ninja
+fopen()ab:/root/_code/aosp-ninja-trace/build/.ninja_log
+write():/root/_code/aosp-ninja-trace/_ninja_cmd/1589907313732834.log
+open64()0:/root/_code/aosp-ninja-trace/src/browse.py
 ```
 
 ### 风险
